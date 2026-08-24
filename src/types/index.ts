@@ -109,5 +109,6 @@ export interface IPracticeQuestion {
     character: string;
     isKnown: boolean;
     meaning?: string[];
+    isN5?: boolean;
   }[];
 }
