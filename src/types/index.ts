@@ -110,5 +110,7 @@ export interface IPracticeQuestion {
     isKnown: boolean;
     meaning?: string[];
     isN5?: boolean;
+    onyomi?: string[];
+    kunyomi?: string[];
   }[];
 }

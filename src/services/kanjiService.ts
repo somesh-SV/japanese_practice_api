@@ -39,7 +39,9 @@ export function evaluateVocabularyKanji(
       character: char,
       isKnown,
       meaning: kanjiDoc ? kanjiDoc.meaning : undefined,
-      isN5: kanjiDoc ? kanjiDoc.jlptLevel === 'N5' : false
+      isN5: kanjiDoc ? kanjiDoc.jlptLevel === 'N5' : false,
+      onyomi: kanjiDoc ? kanjiDoc.onyomi : undefined,
+      kunyomi: kanjiDoc ? kanjiDoc.kunyomi : undefined
     };
   });
 
