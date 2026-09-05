@@ -9,6 +9,23 @@ const LessonSchema = new Schema<ILessonDocument>({
   title: { type: String, required: true },
   jlptLevel: { type: String, required: true, default: 'N5' },
   vocabularyCount: { type: Number, default: 0 },
+  sentencePatterns: [{ japanese: String, reading: String, english: String }],
+  exampleSentences: [{ japanese: String, reading: String, english: String }],
+  conversation: {
+    title: String,
+    situation: String,
+    characters: [String],
+    lines: [{ speaker: String, japanese: String, reading: String, english: String }]
+  },
+  renshuuPhrases: [{ japanese: String, reading: String, english: String, notes: String }],
+  grammarNotes: [{
+    title: String,
+    explanation: String,
+    examples: [{ japanese: String, reading: String, english: String }]
+  }],
+  usefulInfoTitle: String,
+  usefulInfo: [{ japanese: String, reading: String, english: String, category: String }]
 }, { timestamps: true });
 
 export const Lesson = mongoose.model<ILessonDocument>('Lesson', LessonSchema);
+

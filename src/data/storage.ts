@@ -32,8 +32,8 @@ class StorageService {
   }
 
   private initLocalData() {
-    // Populate in-memory seed
-    this.lessons = SEED_LESSONS.map((l, i) => ({ ...l, _id: `lesson_${l.lessonNumber}` }));
+    // Populate in-memory seed exclusively from authentic textbook datasets
+    this.lessons = SEED_LESSONS.map((l) => ({ ...l, _id: `lesson_${l.lessonNumber}` }));
     this.kanji = SEED_KANJI.map((k, i) => ({ ...k, _id: `kanji_${i + 1}` }));
     this.vocabulary = SEED_VOCABULARY.map((v, i) => ({ ...v, _id: `vocab_${i + 1}` }));
 
@@ -48,22 +48,7 @@ class StorageService {
       l.vocabularyCount = counts[l.lessonNumber] || 0;
     });
 
-    // Default progress for some sample kanji (like 水, 日, 月, 一, 二, etc.)
-    const sampleKnownKanji = ['水', '日', '月', '一', '二', '三', '四', '五', '人', '先', '生', '学', '校', '本', '語', '何', '時', '分', '今', '大', '小', '中', '国', '行', '来', '見', '食', '飲', '車', '電', '気', '天', '白', '金', '手'];
-    sampleKnownKanji.forEach(char => {
-      const k = this.kanji.find(item => item.character === char);
-      if (k) {
-        this.userKanjiProgress.set(`default_user_${k._id}`, {
-          userId: 'default_user',
-          kanjiId: k._id,
-          character: k.character,
-          status: 'known',
-          lastPracticedAt: new Date().toISOString()
-        });
-      }
-    });
-
-    // Load persisted local user progress if exists
+    // Load persisted local user progress if exists (filtered to valid IDs only)
     try {
       if (!fs.existsSync(this.dataDir)) {
         fs.mkdirSync(this.dataDir, { recursive: true });
@@ -71,14 +56,21 @@ class StorageService {
       const progressPath = path.join(this.dataDir, 'user_progress.json');
       if (fs.existsSync(progressPath)) {
         const data = JSON.parse(fs.readFileSync(progressPath, 'utf8'));
+        const validVocabIds = new Set(this.vocabulary.map(v => v._id));
+        const validKanjiChars = new Set(this.kanji.map(k => k.character));
+
         if (data.vocabProgress) {
           data.vocabProgress.forEach((p: IUserVocabularyProgress) => {
-            this.userVocabProgress.set(`${p.userId}_${p.vocabularyId}`, p);
+            if (validVocabIds.has(p.vocabularyId)) {
+              this.userVocabProgress.set(`${p.userId}_${p.vocabularyId}`, p);
+            }
           });
         }
         if (data.kanjiProgress) {
           data.kanjiProgress.forEach((p: IUserKanjiProgress) => {
-            this.userKanjiProgress.set(`${p.userId}_${p.kanjiId}`, p);
+            if (validKanjiChars.has(p.character)) {
+              this.userKanjiProgress.set(`${p.userId}_${p.kanjiId}`, p);
+            }
           });
         }
         if (data.sessions) {
@@ -86,7 +78,7 @@ class StorageService {
         }
       }
     } catch (e) {
-      console.warn('Could not load local progress fallback file:', e);
+      console.warn('Could not load local progress file:', e);
     }
   }
 
@@ -142,20 +134,23 @@ class StorageService {
 
     try {
       const lessonCount = await Lesson.countDocuments();
-      if (lessonCount === 0) {
-        console.log('Seeding Lessons into MongoDB Atlas...');
+      if (lessonCount !== SEED_LESSONS.length) {
+        console.log('Refreshing Lessons into MongoDB Atlas with authentic textbook curriculum...');
+        await Lesson.deleteMany({});
         await Lesson.insertMany(SEED_LESSONS);
       }
 
       const kanjiCount = await Kanji.countDocuments();
-      if (kanjiCount === 0) {
-        console.log('Seeding Kanji into MongoDB Atlas...');
+      if (kanjiCount !== SEED_KANJI.length) {
+        console.log('Refreshing Kanji into MongoDB Atlas (120 Meguro Language Center kanji)...');
+        await Kanji.deleteMany({});
         await Kanji.insertMany(SEED_KANJI);
       }
 
       const vocabCount = await Vocabulary.countDocuments();
-      if (vocabCount === 0) {
-        console.log('Seeding Vocabulary into MongoDB Atlas...');
+      if (vocabCount !== SEED_VOCABULARY.length) {
+        console.log('Refreshing Vocabulary into MongoDB Atlas (1,192 Minna no Nihongo items)...');
+        await Vocabulary.deleteMany({});
         await Vocabulary.insertMany(SEED_VOCABULARY);
       }
 
@@ -199,6 +194,7 @@ class StorageService {
     lessonNumbers?: number[];
     jlptLevel?: string;
     search?: string;
+    category?: string;
   }): Promise<IVocabulary[]> {
     let result = [...this.vocabulary];
 
@@ -209,6 +205,14 @@ class StorageService {
 
     if (filter?.jlptLevel) {
       result = result.filter(v => v.jlptLevel === filter.jlptLevel);
+    }
+
+    if (filter?.category && filter.category !== 'all') {
+      if (filter.category === 'renshuu-kaiwa') {
+        result = result.filter(v => v.category === 'renshuu' || v.category === 'kaiwa');
+      } else {
+        result = result.filter(v => v.category === filter.category);
+      }
     }
 
     if (filter?.search) {

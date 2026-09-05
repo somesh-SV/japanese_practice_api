@@ -24,6 +24,8 @@ kanjiRouter.get('/', async (req, res) => {
       };
     });
 
+    items.sort((a, b) => (a.kanjiNumber || 0) - (b.kanjiNumber || 0));
+
     if (typeof status === 'string' && status !== 'all') {
       items = items.filter(i => i.userStatus === status);
     }
@@ -40,8 +42,8 @@ kanjiRouter.post('/:character/status', async (req, res) => {
     const { character } = req.params;
     const { status } = req.body;
 
-    if (!['unknown', 'learning', 'known'].includes(status)) {
-      return res.status(400).json({ success: false, error: 'Invalid status. Must be unknown, learning, or known' });
+    if (!['unknown', 'known'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status. Must be unknown or known' });
     }
 
     const updated = await storage.setKanjiStatus('default_user', character, status);

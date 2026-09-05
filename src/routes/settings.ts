@@ -13,8 +13,8 @@ settingsRouter.get('/', async (req, res) => {
         database: dbStatus,
         defaults: {
           answerMode: 'multiple-choice',
-          direction: 'mixed',
-          cardsPerSession: 20,
+          direction: 'en-ja',
+          cardsPerSession: 'all',
           shuffle: true,
           showFuriganaHint: true
         }

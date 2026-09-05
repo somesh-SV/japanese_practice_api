@@ -21,6 +21,9 @@ const VocabularySchema = new Schema<IVocabularyDocument>({
   examples: [ExampleSchema],
   notes: { type: String },
   audioUrl: { type: String },
+  category: { type: String, default: 'core', index: true },
+  tags: [{ type: String }],
+  subLesson: { type: String },
 }, { timestamps: true });
 
 VocabularySchema.index({ japanese: 'text', reading: 'text', english: 'text' });

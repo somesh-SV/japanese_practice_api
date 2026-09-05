@@ -6,7 +6,7 @@ export interface IPracticeSessionDocument extends Omit<IPracticeSession, '_id'>,
 const PracticeSessionSchema = new Schema<IPracticeSessionDocument>({
   userId: { type: String, required: true, default: 'default_user', index: true },
   lessonRange: [{ type: Number, required: true }],
-  direction: { type: String, enum: ['en-ja', 'ja-en', 'mixed'], required: true },
+  direction: { type: String, enum: ['en-ja', 'ja-en'], required: true },
   answerMode: { type: String, enum: ['type', 'flip', 'multiple-choice'], required: true },
   totalCards: { type: Number, required: true },
   correctCount: { type: Number, required: true },

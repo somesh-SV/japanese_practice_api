@@ -11,10 +11,10 @@ practiceRouter.post('/generate-session', async (req, res) => {
   try {
     const {
       lessonNumbers = [1],
-      direction = 'mixed',
+      direction = 'en-ja',
       answerMode = 'multiple-choice',
-      cardCount = 20,
-      statusFilter = 'all',
+      cardCount = 'all',
+      category = 'core',
       shuffle = true,
       specificVocabIds
     } = req.body;
@@ -25,27 +25,13 @@ practiceRouter.post('/generate-session', async (req, res) => {
       targetVocabs = await storage.getVocabularyByIds(specificVocabIds);
     } else {
       const lessons = Array.isArray(lessonNumbers) ? lessonNumbers.map(Number) : [1];
-      targetVocabs = await storage.getVocabulary({ lessonNumbers: lessons });
+      targetVocabs = await storage.getVocabulary({ 
+        lessonNumbers: lessons,
+      });
     }
 
     if (targetVocabs.length === 0) {
-      // If no words found in specific lessons, fallback to lesson 1
       targetVocabs = await storage.getVocabulary({ lessonNumbers: [1] });
-    }
-
-    // Filter by user status if requested
-    const userProgress = await storage.getUserVocabProgress('default_user');
-    const progressMap = new Map(userProgress.map(p => [p.vocabularyId, p.status]));
-
-    if (statusFilter && statusFilter !== 'all') {
-      targetVocabs = targetVocabs.filter(v => {
-        const s = progressMap.get(v._id) || 'new';
-        return s === statusFilter;
-      });
-      // If filtered to 0, provide all
-      if (targetVocabs.length === 0) {
-        targetVocabs = await storage.getVocabulary({ lessonNumbers });
-      }
     }
 
     // Shuffle if requested
@@ -53,27 +39,23 @@ practiceRouter.post('/generate-session', async (req, res) => {
       targetVocabs = shuffleArray(targetVocabs);
     }
 
-    // Limit card count
-    let count = typeof cardCount === 'number' ? cardCount : parseInt(cardCount, 10);
-    if (!isNaN(count) && count > 0 && count < targetVocabs.length) {
-      targetVocabs = targetVocabs.slice(0, count);
+    // Limit card count if not 'all'
+    if (cardCount !== 'all') {
+      let count = typeof cardCount === 'number' ? cardCount : parseInt(cardCount, 10);
+      if (!isNaN(count) && count > 0 && count < targetVocabs.length) {
+        targetVocabs = targetVocabs.slice(0, count);
+      }
     }
 
     // Fetch kanji knowledge for kanji-aware display
     const knownKanjiSet = await storage.getKnownKanjiSet('default_user');
     const kanjiMap = await storage.getKanjiMap();
-    const allPoolVocab = await storage.getVocabulary(); // for distractor generation
+    const allPoolVocab = await storage.getVocabulary({ category: 'core' }); // only core words as distractors
 
     // Construct questions
-    const questions: IPracticeQuestion[] = targetVocabs.map(vocab => {
-      // Determine question direction
-      let cardDirection: 'en-ja' | 'ja-en';
-      if (direction === 'mixed') {
-        cardDirection = Math.random() > 0.5 ? 'en-ja' : 'ja-en';
-      } else {
-        cardDirection = direction;
-      }
+    const cardDirection: 'en-ja' | 'ja-en' = direction === 'en-ja' ? 'en-ja' : 'ja-en';
 
+    const questions: IPracticeQuestion[] = targetVocabs.map(vocab => {
       const kanjiEval = evaluateVocabularyKanji(vocab, knownKanjiSet, kanjiMap);
 
       let prompt = '';
@@ -93,11 +75,13 @@ practiceRouter.post('/generate-session', async (req, res) => {
 
       let options: string[] | undefined;
       let distractors: string[] | undefined;
+      let richOptions: any[] | undefined;
 
       if (answerMode === 'multiple-choice') {
-        const mcResult = generateMultipleChoiceOptions(vocab, cardDirection, allPoolVocab);
+        const mcResult = generateMultipleChoiceOptions(vocab, cardDirection, allPoolVocab, knownKanjiSet, kanjiMap);
         options = mcResult.options;
         distractors = mcResult.distractors;
+        richOptions = mcResult.richOptions;
       }
 
       return {
@@ -110,6 +94,7 @@ practiceRouter.post('/generate-session', async (req, res) => {
         allMeanings: vocab.english,
         distractors,
         options,
+        richOptions,
         isKanjiMasked: kanjiEval.isKanjiMasked,
         constituentKanji: kanjiEval.constituentKanji
       };
@@ -119,7 +104,7 @@ practiceRouter.post('/generate-session', async (req, res) => {
       success: true,
       total: questions.length,
       lessonNumbers,
-      direction,
+      direction: cardDirection,
       answerMode,
       questions
     });
@@ -168,7 +153,7 @@ practiceRouter.post('/save-session', async (req, res) => {
     const saved = await storage.recordPracticeSession({
       userId: 'default_user',
       lessonRange: Array.isArray(lessonRange) ? lessonRange : [1],
-      direction: direction || 'mixed',
+      direction: direction === 'en-ja' ? 'en-ja' : 'ja-en',
       answerMode: answerMode || 'multiple-choice',
       totalCards: totalCards || 0,
       correctCount: correctCount || 0,

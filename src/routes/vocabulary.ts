@@ -7,7 +7,7 @@ export const vocabularyRouter = Router();
 // GET vocabulary with filtering, searching, and user progress
 vocabularyRouter.get('/', async (req, res) => {
   try {
-    const { lessons, jlpt, search, status } = req.query;
+    const { lessons, jlpt, search, status, category } = req.query;
 
     let lessonNumbers: number[] | undefined;
     if (typeof lessons === 'string' && lessons.trim()) {
@@ -18,6 +18,7 @@ vocabularyRouter.get('/', async (req, res) => {
       lessonNumbers,
       jlptLevel: typeof jlpt === 'string' ? jlpt : undefined,
       search: typeof search === 'string' ? search : undefined,
+      category: typeof category === 'string' ? category : undefined,
     });
 
     const userProgress = await storage.getUserVocabProgress('default_user');

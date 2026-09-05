@@ -37,15 +37,13 @@ progressRouter.get('/summary', async (req, res) => {
     // Kanji stats
     const kanjiStatusMap = new Map(kanjiProgress.map(p => [p.character, p.status]));
     let knownKanji = 0;
-    let learningKanji = 0;
 
     allKanji.forEach(k => {
       const st = kanjiStatusMap.get(k.character) || 'unknown';
       if (st === 'known') knownKanji++;
-      else if (st === 'learning') learningKanji++;
     });
 
-    const unknownKanji = allKanji.length - (knownKanji + learningKanji);
+    const unknownKanji = allKanji.length - knownKanji;
     const kanjiMasteryPercentage = allKanji.length > 0 ? Math.round((knownKanji / allKanji.length) * 100) : 0;
 
     // Today's practice stats
@@ -90,7 +88,6 @@ progressRouter.get('/summary', async (req, res) => {
         kanji: {
           total: allKanji.length,
           known: knownKanji,
-          learning: learningKanji,
           unknown: unknownKanji,
           masteryPercentage: kanjiMasteryPercentage
         },
@@ -128,7 +125,7 @@ progressRouter.post('/vocab-status', async (req, res) => {
 progressRouter.post('/kanji-status', async (req, res) => {
   try {
     const { character, status } = req.body;
-    if (!character || !['unknown', 'learning', 'known'].includes(status)) {
+    if (!character || !['unknown', 'known'].includes(status)) {
       return res.status(400).json({ success: false, error: 'Invalid character or status' });
     }
     const updated = await storage.setKanjiStatus('default_user', character, status);
